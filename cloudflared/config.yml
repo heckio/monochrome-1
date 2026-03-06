@@ -1,0 +1,24 @@
+# Cloudflare Tunnel config for Monochrome
+# Place this file at: /etc/cloudflared/config.yml
+#
+# After running:
+#   cloudflared tunnel login
+#   cloudflared tunnel create monochrome
+#
+# Replace TUNNEL_ID below with the UUID printed by the create command.
+# Replace yourdomain.com with your actual domain.
+
+tunnel: TUNNEL_ID
+credentials-file: /root/.cloudflared/TUNNEL_ID.json
+
+ingress:
+  # Main app
+  - hostname: yourdomain.com
+    service: http://localhost:3000
+
+  # PocketBase admin (optional — remove if not using PocketBase)
+  - hostname: db.yourdomain.com
+    service: http://localhost:8090
+
+  # Required catch-all
+  - service: http_status:404

@@ -795,6 +795,18 @@ export const playlistSettings = {
     setUseRelativePaths(enabled) {
         localStorage.setItem(this.RELATIVE_PATHS_KEY, enabled ? 'true' : 'false');
     },
+
+    shouldSeparateDiscsInZip() {
+        try {
+            return localStorage.getItem('playlist-separate-discs-zip') === 'true';
+        } catch {
+            return false;
+        }
+    },
+
+    setSeparateDiscsInZip(enabled) {
+        localStorage.setItem('playlist-separate-discs-zip', enabled ? 'true' : 'false');
+    },
 };
 
 export const visualizerSettings = {
@@ -1378,6 +1390,7 @@ export const exponentialVolumeSettings = {
 
 export const audioEffectsSettings = {
     SPEED_KEY: 'audio-effects-speed',
+    PRESERVE_PITCH_KEY: 'audio-effects-preserve-pitch',
 
     // Playback speed (0.01 to 100, default 1.0)
     getSpeed() {
@@ -1392,6 +1405,19 @@ export const audioEffectsSettings = {
     setSpeed(speed) {
         const validSpeed = Math.max(0.01, Math.min(100, parseFloat(speed) || 1.0));
         localStorage.setItem(this.SPEED_KEY, validSpeed.toString());
+    },
+
+    isPreservePitchEnabled() {
+        try {
+            const val = localStorage.getItem(this.PRESERVE_PITCH_KEY);
+            return val === null ? true : val === 'true';
+        } catch {
+            return true;
+        }
+    },
+
+    setPreservePitch(enabled) {
+        localStorage.setItem(this.PRESERVE_PITCH_KEY, enabled ? 'true' : 'false');
     },
 };
 
@@ -1831,6 +1857,19 @@ export const sidebarSectionSettings = {
 
     setShowDiscord(enabled) {
         localStorage.setItem(this.SHOW_DISCORD_KEY, enabled ? 'true' : 'false');
+    },
+
+    shouldShowGithub() {
+        try {
+            const val = localStorage.getItem('sidebar-show-github');
+            return val === null ? true : val === 'true';
+        } catch {
+            return true;
+        }
+    },
+
+    setShowGithub(enabled) {
+        localStorage.setItem('sidebar-show-github', enabled ? 'true' : 'false');
     },
 
     normalizeOrder(order) {
@@ -2553,5 +2592,85 @@ export const contentBlockingSettings = {
         localStorage.removeItem(this.BLOCKED_ARTISTS_KEY);
         localStorage.removeItem(this.BLOCKED_TRACKS_KEY);
         localStorage.removeItem(this.BLOCKED_ALBUMS_KEY);
+    },
+};
+
+export const losslessContainerSettings = {
+    STORAGE_KEY: 'lossless-container',
+
+    getContainer() {
+        try {
+            return localStorage.getItem(this.STORAGE_KEY) || 'flac';
+        } catch {
+            return 'flac';
+        }
+    },
+
+    setContainer(value) {
+        localStorage.setItem(this.STORAGE_KEY, value);
+    },
+};
+
+export const fullscreenCoverClickSettings = {
+    STORAGE_KEY: 'fullscreen-cover-click-action',
+
+    getAction() {
+        try {
+            return localStorage.getItem(this.STORAGE_KEY) || 'exit';
+        } catch {
+            return 'exit';
+        }
+    },
+
+    setAction(value) {
+        localStorage.setItem(this.STORAGE_KEY, value);
+    },
+};
+
+export const keyboardShortcuts = {
+    STORAGE_KEY: 'keyboard-shortcuts',
+
+    getDefaultShortcuts() {
+        return {
+            playPause: { key: ' ', shift: false, ctrl: false, alt: false, description: 'Play / Pause' },
+            seekForward: { key: 'arrowright', shift: false, ctrl: false, alt: false, description: 'Seek Forward' },
+            seekBackward: { key: 'arrowleft', shift: false, ctrl: false, alt: false, description: 'Seek Backward' },
+            nextTrack: { key: 'arrowright', shift: true, ctrl: false, alt: false, description: 'Next Track' },
+            previousTrack: { key: 'arrowleft', shift: true, ctrl: false, alt: false, description: 'Previous Track' },
+            volumeUp: { key: 'arrowup', shift: false, ctrl: false, alt: false, description: 'Volume Up' },
+            volumeDown: { key: 'arrowdown', shift: false, ctrl: false, alt: false, description: 'Volume Down' },
+            mute: { key: 'm', shift: false, ctrl: false, alt: false, description: 'Mute' },
+            shuffle: { key: 's', shift: false, ctrl: false, alt: false, description: 'Shuffle' },
+            repeat: { key: 'r', shift: false, ctrl: false, alt: false, description: 'Repeat' },
+            queue: { key: 'q', shift: false, ctrl: false, alt: false, description: 'Queue' },
+            lyrics: { key: 'l', shift: false, ctrl: false, alt: false, description: 'Lyrics' },
+            search: { key: '/', shift: false, ctrl: false, alt: false, description: 'Search' },
+            escape: { key: 'escape', shift: false, ctrl: false, alt: false, description: 'Close / Escape' },
+            visualizerNext: { key: null, shift: false, ctrl: false, alt: false, description: 'Visualizer Next' },
+            visualizerPrev: { key: null, shift: false, ctrl: false, alt: false, description: 'Visualizer Previous' },
+            visualizerCycle: { key: null, shift: false, ctrl: false, alt: false, description: 'Visualizer Cycle' },
+        };
+    },
+
+    getShortcuts() {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            if (!stored) return this.getDefaultShortcuts();
+            const parsed = JSON.parse(stored);
+            // Merge with defaults so new actions are always present
+            return { ...this.getDefaultShortcuts(), ...parsed };
+        } catch {
+            return this.getDefaultShortcuts();
+        }
+    },
+
+    setShortcut(action, shortcut) {
+        const current = this.getShortcuts();
+        current[action] = shortcut;
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
+    },
+
+    resetShortcuts() {
+        localStorage.removeItem(this.STORAGE_KEY);
     },
 };
