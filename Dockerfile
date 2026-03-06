@@ -17,7 +17,7 @@ ENV PATH="/root/.bun/bin:${PATH}"
 COPY package.json package-lock.json ./
 
 # Install dependencies (Node)
-RUN bun install
+RUN npm ci --ignore-scripts
 
 # Copy the rest of the project
 COPY . .
