@@ -1,12 +1,12 @@
-# Use nginx to serve pre-built static files — no Node.js, no esbuild
-FROM nginx:alpine
+# Single-process Node.js static server — no npm install, no child processes
+# Works in restricted Docker environments (Proxmox LXC)
+FROM node:lts-alpine
 
-# Copy pre-built app
-COPY dist/ /usr/share/nginx/html/
+WORKDIR /app
 
-# Nginx config with /health endpoint and SPA routing
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY server.js ./
+COPY dist/ ./dist/
 
 EXPOSE 4173
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
