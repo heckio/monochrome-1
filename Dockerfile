@@ -16,8 +16,12 @@ ENV PATH="/root/.bun/bin:${PATH}"
 # Copy package files first for caching
 COPY package.json package-lock.json ./
 
-# Install dependencies (Node)
-RUN npm ci
+# Install dependencies, skip native build scripts (bufferutil/utf-8-validate
+# are optional ws performance addons; esbuild binary is fixed below)
+RUN npm ci --ignore-scripts
+
+# Make esbuild binary executable (npm ci doesn't preserve execute bits)
+RUN find node_modules -path "*/@esbuild/*/bin/esbuild" -exec chmod +x {} \; 2>/dev/null || true
 
 # Copy the rest of the project
 COPY . .
