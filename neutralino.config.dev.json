@@ -7,7 +7,7 @@
     "version": "1.0.0",
     "defaultMode": "window",
     "documentRoot": "/",
-    "url": "/public/neutralino_loader.html",
+    "url": "/neutralino_loader.html",
     "enableServer": true,
     "enableNativeAPI": true,
     "enableExtensions": true,

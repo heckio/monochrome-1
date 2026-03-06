@@ -535,6 +535,89 @@ export const downloadQualitySettings = {
     },
 };
 
+export const streamingQualitySettings = {
+    STORAGE_KEY: 'playback-quality',
+    getQuality() {
+        try {
+            return localStorage.getItem(this.STORAGE_KEY) || 'HI_RES_LOSSLESS';
+        } catch {
+            return 'HI_RES_LOSSLESS';
+        }
+    },
+    setQuality(quality) {
+        localStorage.setItem(this.STORAGE_KEY, quality);
+    },
+    isDataSaverActive() {
+        return this.getQuality() === 'HIGH';
+    },
+    toggle() {
+        const current = this.getQuality();
+        const next = current === 'HIGH' ? 'HI_RES_LOSSLESS' : 'HIGH';
+        this.setQuality(next);
+        return next;
+    },
+};
+
+// Track play statistics and download status stored per-track in localStorage.
+// Schema: { [trackId]: { playCount: number, downloadStatus: 'not downloaded' | 'downloaded' } }
+export const playStatsManager = {
+    STORAGE_KEY: 'monochrome-play-stats',
+    AUTO_DOWNLOAD_THRESHOLD: 10,
+
+    _get() {
+        try {
+            const data = localStorage.getItem(this.STORAGE_KEY);
+            return data ? JSON.parse(data) : {};
+        } catch {
+            return {};
+        }
+    },
+
+    _save(data) {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        } catch {
+            console.warn('playStatsManager: failed to save to localStorage');
+        }
+    },
+
+    getTrackStats(trackId) {
+        const all = this._get();
+        return all[trackId] || { playCount: 0, downloadStatus: 'not downloaded' };
+    },
+
+    // Increment the play count for a track and return the new count.
+    incrementPlayCount(trackId) {
+        const all = this._get();
+        if (!all[trackId]) {
+            all[trackId] = { playCount: 0, downloadStatus: 'not downloaded' };
+        }
+        all[trackId].playCount += 1;
+        this._save(all);
+        return all[trackId].playCount;
+    },
+
+    markDownloaded(trackId) {
+        const all = this._get();
+        if (!all[trackId]) {
+            all[trackId] = { playCount: 0, downloadStatus: 'downloaded' };
+        } else {
+            all[trackId].downloadStatus = 'downloaded';
+        }
+        this._save(all);
+    },
+
+    shouldAutoDownload(trackId) {
+        const stats = this.getTrackStats(trackId);
+        return (
+            stats.playCount >= this.AUTO_DOWNLOAD_THRESHOLD &&
+            stats.downloadStatus !== 'downloaded'
+        );
+    },
+};
+
+
+
 export const coverArtSizeSettings = {
     STORAGE_KEY: 'cover-art-size',
     getSize() {
@@ -1261,9 +1344,11 @@ export const exponentialVolumeSettings = {
 
     isEnabled() {
         try {
-            return localStorage.getItem(this.STORAGE_KEY) === 'true';
+            // Default to true — always use logarithmic volume curve
+            const val = localStorage.getItem(this.STORAGE_KEY);
+            return val === null ? true : val === 'true';
         } catch {
-            return false;
+            return true;
         }
     },
 

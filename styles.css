@@ -16,16 +16,26 @@
     --font-size-scale: 100%;
 
     /* Typography Scale - Base 16px (1rem) */
-    --text-xs: 0.75rem; /* 12px - Captions, badges, timestamps */
-    --text-sm: 0.875rem; /* 14px - Secondary text, labels */
-    --text-base: 1rem; /* 16px - Body text (default) */
-    --text-md: 1.125rem; /* 18px - Lead paragraphs */
-    --text-lg: 1.25rem; /* 20px - Small headings */
-    --text-xl: 1.5rem; /* 24px - H4, card titles */
-    --text-2xl: 1.875rem; /* 30px - H3 */
-    --text-3xl: 2.25rem; /* 36px - H2 */
-    --text-4xl: 3rem; /* 48px - H1 */
-    --text-5xl: 3.75rem; /* 60px - Display text */
+    --text-xs: 0.75rem;
+    /* 12px - Captions, badges, timestamps */
+    --text-sm: 0.875rem;
+    /* 14px - Secondary text, labels */
+    --text-base: 1rem;
+    /* 16px - Body text (default) */
+    --text-md: 1.125rem;
+    /* 18px - Lead paragraphs */
+    --text-lg: 1.25rem;
+    /* 20px - Small headings */
+    --text-xl: 1.5rem;
+    /* 24px - H4, card titles */
+    --text-2xl: 1.875rem;
+    /* 30px - H3 */
+    --text-3xl: 2.25rem;
+    /* 36px - H2 */
+    --text-4xl: 3rem;
+    /* 48px - H1 */
+    --text-5xl: 3.75rem;
+    /* 60px - Display text */
 
     /* Font Weights */
     --font-normal: 400;
@@ -45,18 +55,30 @@
        Use these variables for ALL spacing (margin, padding, gap)
        ------------------------------------------------------------------------- */
     --space-0: 0;
-    --space-1: 0.25rem; /* 4px */
-    --space-2: 0.5rem; /* 8px */
-    --space-3: 0.75rem; /* 12px */
-    --space-4: 1rem; /* 16px */
-    --space-5: 1.25rem; /* 20px */
-    --space-6: 1.5rem; /* 24px */
-    --space-8: 2rem; /* 32px */
-    --space-10: 2.5rem; /* 40px */
-    --space-12: 3rem; /* 48px */
-    --space-16: 4rem; /* 64px */
-    --space-20: 5rem; /* 80px */
-    --space-24: 6rem; /* 96px */
+    --space-1: 0.25rem;
+    /* 4px */
+    --space-2: 0.5rem;
+    /* 8px */
+    --space-3: 0.75rem;
+    /* 12px */
+    --space-4: 1rem;
+    /* 16px */
+    --space-5: 1.25rem;
+    /* 20px */
+    --space-6: 1.5rem;
+    /* 24px */
+    --space-8: 2rem;
+    /* 32px */
+    --space-10: 2.5rem;
+    /* 40px */
+    --space-12: 3rem;
+    /* 48px */
+    --space-16: 4rem;
+    /* 64px */
+    --space-20: 5rem;
+    /* 80px */
+    --space-24: 6rem;
+    /* 96px */
 
     /* Legacy spacing aliases (deprecated, use --space-* instead) */
     --spacing-xs: var(--space-1);
@@ -72,13 +94,20 @@
        Use these variables for ALL border-radius values
        ------------------------------------------------------------------------- */
     --radius-none: 0;
-    --radius-xs: 2px; /* Small badges, tags */
-    --radius-sm: 4px; /* Inputs, small buttons */
-    --radius-md: 8px; /* Cards, panels */
-    --radius-lg: 12px; /* Large cards, modals */
-    --radius-xl: 16px; /* Hero elements */
-    --radius-2xl: 24px; /* Extra large elements */
-    --radius-full: 9999px; /* Circles, pills, avatars */
+    --radius-xs: 2px;
+    /* Small badges, tags */
+    --radius-sm: 4px;
+    /* Inputs, small buttons */
+    --radius-md: 8px;
+    /* Cards, panels */
+    --radius-lg: 12px;
+    /* Large cards, modals */
+    --radius-xl: 16px;
+    /* Hero elements */
+    --radius-2xl: 24px;
+    /* Extra large elements */
+    --radius-full: 9999px;
+    /* Circles, pills, avatars */
 
     /* Legacy radius aliases (deprecated, use --radius-md for default) */
     --radius: var(--radius-md);
@@ -1575,6 +1604,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 @keyframes pulse {
+
     0%,
     100% {
         opacity: 1;
@@ -1991,6 +2021,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 @media (max-width: 1100px) {
+
     #home-recommended-songs,
     #artist-detail-tracks,
     #playlist-detail-recommended {
@@ -2564,11 +2595,11 @@ input[type='search']::-webkit-search-cancel-button {
     margin-bottom: 0;
 }
 
-.sidebar-settings-section .sidebar-settings-section-label + .setting-item {
+.sidebar-settings-section .sidebar-settings-section-label+.setting-item {
     margin-top: var(--spacing-sm);
 }
 
-.sidebar-settings-section .setting-item + .setting-item {
+.sidebar-settings-section .setting-item+.setting-item {
     margin-top: var(--spacing-md);
 }
 
@@ -2635,7 +2666,8 @@ input[type='search']::-webkit-search-cancel-button {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 0.5rem;
-    appearance: auto; /* Force native dropdown for Tesla/Mobile */
+    appearance: auto;
+    /* Force native dropdown for Tesla/Mobile */
 }
 
 .setting-item input[type='number'] {
@@ -2922,11 +2954,11 @@ input[type='search']::-webkit-search-cancel-button {
     box-shadow: 0 2px 4px rgb(0, 0, 0, 0.2);
 }
 
-input:checked + .slider {
+input:checked+.slider {
     background-color: var(--primary);
 }
 
-input:checked + .slider::before {
+input:checked+.slider::before {
     transform: translateX(16px);
     background-color: var(--primary-foreground);
     box-shadow: -2px 2px 4px rgb(0, 0, 0, 0.1);
@@ -2938,29 +2970,29 @@ input:checked + .slider::before {
     /* Hover scale effect */
 }
 
-.toggle-switch:hover input:checked + .slider::before {
+.toggle-switch:hover input:checked+.slider::before {
     transform: translateX(16px) scale(1.1);
 }
 
-.toggle-switch input:disabled + .slider {
+.toggle-switch input:disabled+.slider {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.toggle-switch input:disabled + .slider::before {
+.toggle-switch input:disabled+.slider::before {
     box-shadow: none;
     transform: translateX(0);
 }
 
-.toggle-switch input:disabled:checked + .slider::before {
+.toggle-switch input:disabled:checked+.slider::before {
     transform: translateX(16px);
 }
 
-.toggle-switch:hover input:disabled + .slider::before {
+.toggle-switch:hover input:disabled+.slider::before {
     transform: translateX(0);
 }
 
-.toggle-switch:hover input:disabled:checked + .slider::before {
+.toggle-switch:hover input:disabled:checked+.slider::before {
     transform: translateX(16px);
 }
 
@@ -3509,10 +3541,21 @@ input:checked + .slider::before {
 }
 
 #visualizer-canvas {
+    display: none !important;
+}
+
+/* Calm blurred gradient to replace the visualizer */
+.fullscreen-cover-content::before {
+    content: '';
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    inset: -40px;
+    background: radial-gradient(ellipse at 30% 40%,
+            color-mix(in srgb, var(--primary) 30%, transparent) 0%,
+            transparent 60%),
+        radial-gradient(ellipse at 70% 60%,
+            color-mix(in srgb, var(--highlight, var(--primary)) 20%, transparent) 0%,
+            transparent 50%);
+    filter: blur(60px);
     z-index: 0;
     pointer-events: none;
 }
@@ -6123,6 +6166,7 @@ img[src=''] {
 }
 
 @media (hover: none) and (pointer: coarse) {
+
     /* Allow play button to float outside square cover on mobile */
     .card-image-wrapper {
         overflow: visible;
@@ -7527,4 +7571,48 @@ textarea:focus {
     width: 100%;
     text-align: left;
     justify-content: flex-start;
+}
+
+/* =========================================================
+   User overrides: hide specific settings rows
+   ========================================================= */
+
+/* Appearance: Visualizer enabled toggle (entire row + sub-options) */
+.setting-item:has(#visualizer-enabled-toggle),
+#visualizer-mode-setting,
+#visualizer-smart-intensity-setting,
+#visualizer-sensitivity-setting,
+#visualizer-preset-setting,
+#butterchurn-cycle-setting,
+#butterchurn-duration-setting,
+#butterchurn-randomize-setting,
+#butterchurn-specific-preset-setting {
+    display: none !important;
+}
+
+/* Interface: Sidebar items to always hide */
+.setting-item[data-sidebar-id="sidebar-nav-about-bottom"],
+.setting-item[data-sidebar-id="sidebar-nav-download-bottom"],
+.setting-item[data-sidebar-id="sidebar-nav-discordbtn"],
+.setting-item[data-sidebar-id="sidebar-nav-donate"],
+.setting-item[data-sidebar-id="sidebar-nav-unreleased"] {
+    display: none !important;
+}
+
+/* Audio: Exponential Volume toggle */
+.setting-item:has(#exponential-volume-toggle) {
+    display: none !important;
+}
+
+/* System: Analytics toggle */
+.setting-item:has(#analytics-toggle) {
+    display: none !important;
+}
+
+
+/* === Custom overrides: Hide unwanted sidebar items === */
+#sidebar-nav-donate,
+#sidebar-nav-discordbtn,
+#sidebar-nav-download-bottom {
+    display: none !important;
 }

@@ -2129,9 +2129,10 @@ export function initializeSettings(scrobbler, player, api, ui) {
     }
 
     if (visualizerEnabledToggle) {
-        visualizerEnabledToggle.checked = visualizerSettings.isEnabled();
-
-        updateVisualizerSettingsVisibility(visualizerEnabledToggle.checked);
+        // Force visualizer off — always disabled, hidden from UI
+        visualizerSettings.setEnabled(false);
+        visualizerEnabledToggle.checked = false;
+        updateVisualizerSettingsVisibility(false);
 
         visualizerEnabledToggle.addEventListener('change', (e) => {
             visualizerSettings.setEnabled(e.target.checked);
@@ -2304,7 +2305,9 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
     const sidebarShowUnreleasedToggle = document.getElementById('sidebar-show-unreleased-toggle');
     if (sidebarShowUnreleasedToggle) {
-        sidebarShowUnreleasedToggle.checked = sidebarSectionSettings.shouldShowUnreleased();
+        // Force off — hidden from UI
+        sidebarSectionSettings.setShowUnreleased(false);
+        sidebarShowUnreleasedToggle.checked = false;
         sidebarShowUnreleasedToggle.addEventListener('change', (e) => {
             sidebarSectionSettings.setShowUnreleased(e.target.checked);
             sidebarSectionSettings.applySidebarVisibility();
@@ -2313,7 +2316,9 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
     const sidebarShowDonateToggle = document.getElementById('sidebar-show-donate-toggle');
     if (sidebarShowDonateToggle) {
-        sidebarShowDonateToggle.checked = sidebarSectionSettings.shouldShowDonate();
+        // Force off — hidden from UI
+        sidebarSectionSettings.setShowDonate(false);
+        sidebarShowDonateToggle.checked = false;
         sidebarShowDonateToggle.addEventListener('change', (e) => {
             sidebarSectionSettings.setShowDonate(e.target.checked);
             sidebarSectionSettings.applySidebarVisibility();
@@ -2329,7 +2334,9 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
     const sidebarShowAboutToggle = document.getElementById('sidebar-show-about-bottom-toggle');
     if (sidebarShowAboutToggle) {
-        sidebarShowAboutToggle.checked = sidebarSectionSettings.shouldShowAbout();
+        // Force off — hidden from UI
+        sidebarSectionSettings.setShowAbout(false);
+        sidebarShowAboutToggle.checked = false;
         sidebarShowAboutToggle.addEventListener('change', (e) => {
             sidebarSectionSettings.setShowAbout(e.target.checked);
             sidebarSectionSettings.applySidebarVisibility();
@@ -2338,7 +2345,9 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
     const sidebarShowDownloadToggle = document.getElementById('sidebar-show-download-bottom-toggle');
     if (sidebarShowDownloadToggle) {
-        sidebarShowDownloadToggle.checked = sidebarSectionSettings.shouldShowDownload();
+        // Force off — hidden from UI
+        sidebarSectionSettings.setShowDownload(false);
+        sidebarShowDownloadToggle.checked = false;
         sidebarShowDownloadToggle.addEventListener('change', (e) => {
             sidebarSectionSettings.setShowDownload(e.target.checked);
             sidebarSectionSettings.applySidebarVisibility();
@@ -2347,7 +2356,9 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
     const sidebarShowDiscordToggle = document.getElementById('sidebar-show-discordbtn-toggle');
     if (sidebarShowDiscordToggle) {
-        sidebarShowDiscordToggle.checked = sidebarSectionSettings.shouldShowDiscord();
+        // Force off — hidden from UI
+        sidebarSectionSettings.setShowDiscord(false);
+        sidebarShowDiscordToggle.checked = false;
         sidebarShowDiscordToggle.addEventListener('change', (e) => {
             sidebarSectionSettings.setShowDiscord(e.target.checked);
             sidebarSectionSettings.applySidebarVisibility();
@@ -2750,10 +2761,11 @@ export function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
-    // Analytics Toggle
+    // Analytics Toggle — force disabled, hidden from UI
     const analyticsToggle = document.getElementById('analytics-toggle');
+    analyticsSettings.setEnabled(false);
     if (analyticsToggle) {
-        analyticsToggle.checked = analyticsSettings.isEnabled();
+        analyticsToggle.checked = false;
         analyticsToggle.addEventListener('change', (e) => {
             analyticsSettings.setEnabled(e.target.checked);
         });

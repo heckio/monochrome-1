@@ -6,15 +6,15 @@
     "description": "Monochrome - Lossless music streaming",
     "version": "1.0.0",
     "defaultMode": "window",
-    "documentRoot": "dist/",
-    "url": "/neutralino_loader.html",
+    "documentRoot": "/",
+    "url": "/public/neutralino_loader.html",
     "enableServer": true,
     "enableNativeAPI": true,
     "enableExtensions": true,
     "tokenSecurity": "none",
     "modes": {
         "window": {
-            "title": "Monochrome",
+            "title": "Monochrome (DEV)",
             "icon": "public/assets/appicon.png",
             "width": 1280,
             "height": 800,
@@ -25,14 +25,14 @@
             "hidden": false,
             "borderless": false,
             "enableInspector": true,
-            "openInspectorOnStartup": false,
+            "openInspectorOnStartup": true,
             "exitProcessOnClose": true
         }
     },
     "port": 5050,
     "cli": {
         "binaryName": "Monochrome",
-        "resourcesPath": "dist/",
+        "resourcesPath": "/",
         "binaryVersion": "6.5.0",
         "clientVersion": "6.5.0"
     },

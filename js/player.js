@@ -16,6 +16,8 @@ import {
     trackDateSettings,
     exponentialVolumeSettings,
     audioEffectsSettings,
+    playStatsManager,
+    streamingQualitySettings,
 } from './storage.js';
 import { audioContextManager } from './audio-context.js';
 
@@ -60,6 +62,7 @@ export class Player {
 
         this.loadQueueState();
         this.setupMediaSession();
+        this.setupDataSaverButton();
 
         window.addEventListener('beforeunload', () => {
             this.saveQueueState();
@@ -76,7 +79,7 @@ export class Player {
             }
             if (document.visibilityState === 'visible' && this.autoplayBlocked) {
                 this.autoplayBlocked = false;
-                this.audio.play().catch(() => {});
+                this.audio.play().catch(() => { });
             }
         });
     }
@@ -295,6 +298,61 @@ export class Player {
 
     setQuality(quality) {
         this.quality = quality;
+        // Sync the dropdown in settings if it's open
+        const dropdown = document.getElementById('streaming-quality-setting');
+        if (dropdown) dropdown.value = quality;
+        // Update data saver button visual state
+        this.updateDataSaverUI();
+    }
+
+    // Set up the Data Saver toggle button (Phase 2)
+    setupDataSaverButton() {
+        const handleDataSaver = async () => {
+            const newQuality = streamingQualitySettings.toggle();
+            this.setQuality(newQuality);
+            streamingQualitySettings.setQuality(newQuality);
+
+            // Reload the current track from the same position
+            if (this.currentTrack && this.audio.src) {
+                const currentTime = this.audio.currentTime;
+                try {
+                    await this.playTrackFromQueue(currentTime, 0);
+                } catch (e) {
+                    console.warn('Data saver reload failed:', e);
+                }
+            }
+        };
+
+        const btn = document.getElementById('data-saver-btn');
+        const btnDesktop = document.getElementById('data-saver-btn-desktop');
+        const btnFullscreen = document.getElementById('fs-data-saver-btn');
+        if (btn) btn.addEventListener('click', handleDataSaver);
+        if (btnDesktop) btnDesktop.addEventListener('click', handleDataSaver);
+        if (btnFullscreen) btnFullscreen.addEventListener('click', handleDataSaver);
+
+        this.updateDataSaverUI();
+    }
+
+    updateDataSaverUI() {
+        const isActive = streamingQualitySettings.isDataSaverActive();
+        const btn = document.getElementById('data-saver-btn');
+        const btnDesktop = document.getElementById('data-saver-btn-desktop');
+        const btnFullscreen = document.getElementById('fs-data-saver-btn');
+        const title = isActive
+            ? 'Quality: 320kbps MP3 — Click to restore Hi-Res'
+            : 'Quality: Hi-Res — Click to switch to 320kbps MP3';
+
+        [btn, btnDesktop, btnFullscreen].forEach((b) => {
+            if (!b) return;
+            b.title = title;
+            if (isActive) {
+                b.classList.add('active');
+                b.style.color = 'var(--primary)';
+            } else {
+                b.classList.remove('active');
+                b.style.color = '';
+            }
+        });
     }
 
     async preloadNextTracks() {
@@ -326,7 +384,7 @@ export class Player {
                 // Warm connection/cache
                 // For Blob URLs (DASH), this head request is not needed and can cause errors.
                 if (!streamUrl.startsWith('blob:')) {
-                    fetch(streamUrl, { method: 'HEAD', signal: this.preloadAbortController.signal }).catch(() => {});
+                    fetch(streamUrl, { method: 'HEAD', signal: this.preloadAbortController.signal }).catch(() => { });
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') {
@@ -545,6 +603,9 @@ export class Player {
             }
 
             this.preloadNextTracks();
+
+            // Phase 1: Play count tracking & auto-download
+            this._onTrackStarted(track);
         } catch (error) {
             if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
                 this.autoplayBlocked = true;
@@ -555,6 +616,40 @@ export class Player {
             if (recursiveCount < currentQueue.length) {
                 setTimeout(() => this.playNext(recursiveCount + 1), 1000);
             }
+        }
+    }
+
+    // Called each time a track begins playing. Increments play count and triggers
+    // auto-download when the threshold is reached.
+    _onTrackStarted(track) {
+        if (!track || !track.id) return;
+        // Only count TIDAL tracks (not local, tracker, or Qobuz)
+        const isTracker = track.isTracker || (track.id && String(track.id).startsWith('tracker-'));
+        const isQobuz = String(track.id).startsWith('q:');
+        if (track.isLocal || isTracker || isQobuz) return;
+
+        const newCount = playStatsManager.incrementPlayCount(track.id);
+        console.debug(`[PlayStats] Track "${track.title}" play count: ${newCount}`);
+
+        if (playStatsManager.shouldAutoDownload(track.id)) {
+            this._autoDownloadTrack(track);
+        }
+    }
+
+    // Silently downloads a track in HI_RES_LOSSLESS FLAC when play count threshold is met.
+    async _autoDownloadTrack(track) {
+        try {
+            const { downloadTrackWithMetadata } = await import('./downloads.js');
+            const { showNotification } = await import('./downloads.js');
+            // Mark as downloaded immediately to prevent duplicate triggers
+            playStatsManager.markDownloaded(track.id);
+            showNotification(`Auto-downloading: "${track.title}" (reached 10 plays)`);
+            await downloadTrackWithMetadata(track, 'HI_RES_LOSSLESS', this.api);
+            console.log(`[AutoDownload] Completed download of "${track.title}"`);
+        } catch (error) {
+            console.error(`[AutoDownload] Failed to download "${track.title}":`, error);
+            // Reset download status so it can retry next time
+            playStatsManager.markDownloaded(track.id); // Keep as downloaded to avoid loops
         }
     }
 
@@ -853,7 +948,7 @@ export class Player {
                     }
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
     }
 
     updatePlayingTrackIndicator() {
