@@ -3,6 +3,7 @@ import {
     themeManager,
     lastFMStorage,
     nowPlayingSettings,
+    fullscreenCoverClickSettings,
     lyricsSettings,
     backgroundSettings,
     dynamicColorSettings,
@@ -11,6 +12,7 @@ import {
     replayGainSettings,
     smoothScrollingSettings,
     downloadQualitySettings,
+    losslessContainerSettings,
     coverArtSizeSettings,
     qualityBadgeSettings,
     trackDateSettings,
@@ -33,6 +35,7 @@ import {
     musicProviderSettings,
     analyticsSettings,
     modalSettings,
+    keyboardShortcuts,
 } from './storage.js';
 import { audioContextManager, EQ_PRESETS } from './audio-context.js';
 import { getButterchurnPresets } from './visualizers/butterchurn.js';
@@ -679,6 +682,61 @@ export function initializeSettings(scrobbler, player, api, ui) {
         });
     });
 
+    const communityThemeContainer = document.getElementById('applied-community-theme-container');
+    const communityThemeBtn = document.getElementById('applied-community-theme-btn');
+    const communityThemeDetails = document.getElementById('community-theme-details-panel');
+    const communityThemeUnapplyBtn = document.getElementById('ct-unapply-btn');
+    const appliedThemeName = document.getElementById('applied-theme-name');
+    const ctDetailsTitle = document.getElementById('ct-details-title');
+    const ctDetailsAuthor = document.getElementById('ct-details-author');
+
+    function updateCommunityThemeUI() {
+        const metadataStr = localStorage.getItem('community-theme');
+        if (metadataStr) {
+            try {
+                const metadata = JSON.parse(metadataStr);
+                if (communityThemeContainer) communityThemeContainer.style.display = 'block';
+                if (appliedThemeName) appliedThemeName.textContent = metadata.name;
+                if (ctDetailsTitle) ctDetailsTitle.textContent = metadata.name;
+                if (ctDetailsAuthor) ctDetailsAuthor.textContent = `by ${metadata.author}`;
+            } catch {
+                if (communityThemeContainer) communityThemeContainer.style.display = 'none';
+            }
+        } else {
+            if (communityThemeContainer) communityThemeContainer.style.display = 'none';
+            if (communityThemeDetails) communityThemeDetails.style.display = 'none';
+        }
+    }
+
+    updateCommunityThemeUI();
+    window.addEventListener('theme-changed', updateCommunityThemeUI);
+
+    if (communityThemeBtn) {
+        communityThemeBtn.addEventListener('click', () => {
+            const isVisible = communityThemeDetails.style.display === 'block';
+            communityThemeDetails.style.display = isVisible ? 'none' : 'block';
+        });
+    }
+
+    if (communityThemeUnapplyBtn) {
+        communityThemeUnapplyBtn.addEventListener('click', () => {
+            if (confirm('Unapply this community theme?')) {
+                localStorage.removeItem('custom_theme_css');
+                localStorage.removeItem('community-theme');
+                const styleEl = document.getElementById('custom-theme-style');
+                if (styleEl) styleEl.remove();
+                themeManager.setTheme('system');
+
+                const themePicker = document.getElementById('theme-picker');
+                if (themePicker) {
+                    themePicker.querySelectorAll('.theme-option').forEach((opt) => opt.classList.remove('active'));
+                    themePicker.querySelector('[data-theme="system"]')?.classList.add('active');
+                }
+                document.getElementById('custom-theme-editor').classList.remove('show');
+            }
+        });
+    }
+
     function renderCustomThemeEditor() {
         const grid = document.getElementById('theme-color-grid');
         const customTheme = themeManager.getCustomTheme() || {
@@ -747,6 +805,15 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
         downloadQualitySetting.addEventListener('change', (e) => {
             downloadQualitySettings.setQuality(e.target.value);
+        });
+    }
+
+    const losslessContainerSetting = document.getElementById('lossless-container-setting');
+    if (losslessContainerSetting) {
+        losslessContainerSetting.value = losslessContainerSettings.getContainer();
+
+        losslessContainerSetting.addEventListener('change', (e) => {
+            losslessContainerSettings.setContainer(e.target.value);
         });
     }
 
@@ -861,6 +928,18 @@ export function initializeSettings(scrobbler, player, api, ui) {
 
         playbackSpeedInput.addEventListener('change', handleInputChange);
         playbackSpeedInput.addEventListener('blur', handleInputChange);
+    }
+
+    // ========================================
+    // Preserve Pitch Toggle
+    // ========================================
+    const preservePitchToggle = document.getElementById('preserve-pitch-toggle');
+    if (preservePitchToggle) {
+        preservePitchToggle.checked = audioEffectsSettings.isPreservePitchEnabled();
+
+        preservePitchToggle.addEventListener('change', (e) => {
+            player.setPreservePitch(e.target.checked);
+        });
     }
 
     // ========================================
@@ -1909,6 +1988,15 @@ export function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
+    // Fullscreen Cover Click Action
+    const fullscreenCoverClickAction = document.getElementById('fullscreen-cover-click-action');
+    if (fullscreenCoverClickAction) {
+        fullscreenCoverClickAction.value = fullscreenCoverClickSettings.getAction();
+        fullscreenCoverClickAction.addEventListener('change', (e) => {
+            fullscreenCoverClickSettings.setAction(e.target.value);
+        });
+    }
+
     // Close Modals on Navigation Toggle
     const closeModalsOnNavigationToggle = document.getElementById('close-modals-on-navigation-toggle');
     if (closeModalsOnNavigationToggle) {
@@ -2365,6 +2453,15 @@ export function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
+    const sidebarShowGithubToggle = document.getElementById('sidebar-show-githubbtn-toggle');
+    if (sidebarShowGithubToggle) {
+        sidebarShowGithubToggle.checked = sidebarSectionSettings.shouldShowGithub();
+        sidebarShowGithubToggle.addEventListener('change', (e) => {
+            sidebarSectionSettings.setShowGithub(e.target.checked);
+            sidebarSectionSettings.applySidebarVisibility();
+        });
+    }
+
     // Apply sidebar visibility on initialization
     sidebarSectionSettings.applySidebarVisibility();
 
@@ -2544,6 +2641,14 @@ export function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
+    const separateDiscsZipToggle = document.getElementById('separate-discs-zip-toggle');
+    if (separateDiscsZipToggle) {
+        separateDiscsZipToggle.checked = playlistSettings.shouldSeparateDiscsInZip();
+        separateDiscsZipToggle.addEventListener('change', (e) => {
+            playlistSettings.setSeparateDiscsInZip(e.target.checked);
+        });
+    }
+
     // API settings
     document.getElementById('refresh-speed-test-btn')?.addEventListener('click', async () => {
         const btn = document.getElementById('refresh-speed-test-btn');
@@ -2661,6 +2766,59 @@ export function initializeSettings(scrobbler, player, api, ui) {
             } catch (err) {
                 console.error('Import failed:', err);
                 alert('Failed to import library. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    // Export All Settings
+    document.getElementById('export-settings-btn')?.addEventListener('click', () => {
+        const settingsToExport = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('monochrome-')) {
+                try {
+                    settingsToExport[key] = JSON.parse(localStorage.getItem(key));
+                } catch {
+                    settingsToExport[key] = localStorage.getItem(key);
+                }
+            }
+        }
+        const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], {
+            type: 'application/json',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `monochrome-settings-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Import All Settings
+    const settingsImportInput = document.getElementById('import-settings-input');
+    document.getElementById('import-settings-btn')?.addEventListener('click', () => {
+        settingsImportInput.click();
+    });
+
+    settingsImportInput?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const settingsToImport = JSON.parse(event.target.result);
+                for (const [key, value] of Object.entries(settingsToImport)) {
+                    if (key.startsWith('monochrome-')) {
+                        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+                    }
+                }
+                alert('Settings imported successfully! Please reload the app.');
+                window.location.reload();
+            } catch (err) {
+                console.error('Import failed:', err);
+                alert('Failed to import settings. Please check the file format.');
             }
         };
         reader.readAsText(file);

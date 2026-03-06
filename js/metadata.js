@@ -1,4 +1,5 @@
-import { getCoverBlob } from './utils.js';
+import { getCoverBlob, detectAudioFormat, getTrackTitle } from './utils.js';
+import { addMp3Metadata } from './id3-writer.js';
 
 const VENDOR_STRING = 'Monochrome';
 const DEFAULT_TITLE = 'Unknown Title';
@@ -6,7 +7,41 @@ const DEFAULT_ARTIST = 'Unknown Artist';
 const DEFAULT_ALBUM = 'Unknown Album';
 
 /**
- * Adds metadata tags to audio files (FLAC or M4A)
+ * Builds a full artist string by combining the track's listed artists
+ * with any featured artists parsed from the title (feat./with).
+ */
+function getFullArtistString(track) {
+    const knownArtists =
+        Array.isArray(track.artists) && track.artists.length > 0
+            ? track.artists.map((a) => (typeof a === 'string' ? a : a.name) || '').filter(Boolean)
+            : track.artist?.name
+              ? [track.artist.name]
+              : [];
+
+    // Parse featured artists from title, e.g. "Song (feat. A, B & C)" or "(with X & Y)"
+    // Note: splitting on '&' may incorrectly fragment compound artist names like "Simon & Garfunkel".
+    const featPattern = /\(\s*(?:feat\.?|ft\.?|with)\s+(.+?)\s*\)/gi;
+    const allFeatArtists = [...(track.title?.matchAll(featPattern) ?? [])].flatMap((m) =>
+        m[1]
+            .split(/\s*[,&]\s*/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+    );
+    if (allFeatArtists.length > 0) {
+        const knownLower = new Set(knownArtists.map((n) => n.toLowerCase()));
+        for (const feat of allFeatArtists) {
+            if (!knownLower.has(feat.toLowerCase())) {
+                knownArtists.push(feat);
+                knownLower.add(feat.toLowerCase());
+            }
+        }
+    }
+
+    return knownArtists.join('; ') || null;
+}
+
+/**
+ * Adds metadata tags to audio files (FLAC, M4A or MP3)
  * @param {Blob} audioBlob - The audio file blob
  * @param {Object} track - Track metadata
  * @param {Object} api - API instance for fetching album art
@@ -19,42 +54,20 @@ export async function addMetadataToAudio(audioBlob, track, api, _quality) {
     const buffer = await audioBlob.slice(0, 12).arrayBuffer();
     const view = new DataView(buffer);
 
-    // Check for FLAC signature: "fLaC" (0x66 0x4C 0x61 0x43)
-    const isFlac =
-        view.byteLength >= 4 &&
-        view.getUint8(0) === 0x66 && // f
-        view.getUint8(1) === 0x4c && // L
-        view.getUint8(2) === 0x61 && // a
-        view.getUint8(3) === 0x43; // C
+    const format = detectAudioFormat(view, audioBlob.type);
 
-    if (isFlac) {
-        return await addFlacMetadata(audioBlob, track, api);
+    switch (format) {
+        case 'flac':
+            return await addFlacMetadata(audioBlob, track, api);
+        case 'mp4':
+            return await addM4aMetadata(audioBlob, track, api);
+        case 'mp3':
+            return await addMp3Metadata(audioBlob, track, api);
+        default:
+            // Unknown format - return original without modification
+            console.warn(`Unknown audio format (mime: ${audioBlob.type}), returning original blob`);
+            return audioBlob;
     }
-
-    // Check for MP4/M4A signature: "ftyp" at offset 4
-    const isMp4 =
-        view.byteLength >= 8 &&
-        view.getUint8(4) === 0x66 && // f
-        view.getUint8(5) === 0x74 && // t
-        view.getUint8(6) === 0x79 && // y
-        view.getUint8(7) === 0x70; // p
-
-    if (isMp4) {
-        return await addM4aMetadata(audioBlob, track, api);
-    }
-
-    // Fallback: check MIME type from blob
-    const mime = audioBlob.type;
-    if (mime === 'audio/flac') {
-        return await addFlacMetadata(audioBlob, track, api);
-    }
-    if (mime === 'audio/mp4' || mime === 'audio/x-m4a') {
-        return await addM4aMetadata(audioBlob, track, api);
-    }
-
-    // Unknown format - return original without modification
-    console.warn(`Unknown audio format (mime: ${mime}), returning original blob`);
-    return audioBlob;
 }
 
 /**
@@ -148,6 +161,7 @@ async function readFlacMetadata(file, metadata) {
                 if (upperKey === 'ALBUM') metadata.album.title = value;
                 if (upperKey === 'ISRC') metadata.isrc = value;
                 if (upperKey === 'COPYRIGHT') metadata.copyright = value;
+                if (upperKey === 'ITUNESADVISORY') metadata.explicit = value === '1';
             }
         }
     }
@@ -249,6 +263,9 @@ async function readM4aMetadata(file, metadata) {
                     const mime = getMimeType(pictureData);
                     const blob = new Blob([pictureData], { type: mime });
                     metadata.album.cover = URL.createObjectURL(blob);
+                } else if (item.type === 'rtng') {
+                    metadata.explicit =
+                        contentLen > 0 && new Uint8Array(view.buffer, contentOffset, contentLen)[0] === 1;
                 }
             }
         }
@@ -544,13 +561,15 @@ function parseFlacBlocks(dataView) {
 function createVorbisCommentBlock(track) {
     // Vorbis comment structure
     const comments = [];
+    const discNumber = track.volumeNumber ?? track.discNumber;
 
     // Add standard tags
     if (track.title) {
-        comments.push(['TITLE', track.title]);
+        comments.push(['TITLE', getTrackTitle(track)]);
     }
-    if (track.artist?.name) {
-        comments.push(['ARTIST', track.artist.name]);
+    const artistStr = getFullArtistString(track);
+    if (artistStr) {
+        comments.push(['ARTIST', artistStr]);
     }
     if (track.album?.title) {
         comments.push(['ALBUM', track.album.title]);
@@ -562,8 +581,24 @@ function createVorbisCommentBlock(track) {
     if (track.trackNumber) {
         comments.push(['TRACKNUMBER', String(track.trackNumber)]);
     }
+    if (discNumber) {
+        comments.push(['DISCNUMBER', String(discNumber)]);
+    }
     if (track.album?.numberOfTracks) {
         comments.push(['TRACKTOTAL', String(track.album.numberOfTracks)]);
+    }
+    if (track.bpm != null) {
+        const bpm = Number(track.bpm);
+        if (Number.isFinite(bpm)) {
+            comments.push(['TEMPO', String(Math.round(bpm))]);
+        }
+    }
+    if (track.replayGain) {
+        const { albumReplayGain, albumPeakAmplitude, trackReplayGain, trackPeakAmplitude } = track.replayGain;
+        if (albumReplayGain) comments.push(['REPLAYGAIN_ALBUM_GAIN', String(albumReplayGain)]);
+        if (albumPeakAmplitude) comments.push(['REPLAYGAIN_ALBUM_PEAK', String(albumPeakAmplitude)]);
+        if (trackReplayGain) comments.push(['REPLAYGAIN_TRACK_GAIN', String(trackReplayGain)]);
+        if (trackPeakAmplitude) comments.push(['REPLAYGAIN_TRACK_PEAK', String(trackPeakAmplitude)]);
     }
 
     const releaseDateStr =
@@ -584,6 +619,9 @@ function createVorbisCommentBlock(track) {
     }
     if (track.isrc) {
         comments.push(['ISRC', track.isrc]);
+    }
+    if (track.explicit) {
+        comments.push(['ITUNESADVISORY', '1']);
     }
 
     // Calculate total size
@@ -904,15 +942,20 @@ function createMp4MetadataAtoms(track) {
     // MP4 metadata atoms are more complex than FLAC
     // We'll create basic iTunes-style metadata
 
+    /**
+     * Array of arrays: [namespace, name, value]
+     */
+    const userTags = [];
     const tags = {
-        '©nam': track.title || DEFAULT_TITLE,
-        '©ART': track.artist?.name || DEFAULT_ARTIST,
+        '©nam': getTrackTitle(track) || DEFAULT_TITLE,
+        '©ART': getFullArtistString(track) || DEFAULT_ARTIST,
         '©alb': track.album?.title || DEFAULT_ALBUM,
         aART: track.album?.artist?.name || track.artist?.name || DEFAULT_ARTIST,
     };
 
     if (track.isrc) {
         tags['ISRC'] = track.isrc;
+        tags['xid '] = ':isrc:' + track.isrc;
     }
 
     if (track.copyright) {
@@ -920,7 +963,25 @@ function createMp4MetadataAtoms(track) {
     }
 
     if (track.trackNumber) {
-        tags['trkn'] = track.trackNumber;
+        tags['trkn'] = {
+            current: track.trackNumber,
+            total: track.album?.numberOfTracks,
+        };
+    }
+    if (track.explicit) {
+        tags['rtng'] = 1; // 1 = Explicit, 2 = Clean, 0 = Unknown
+    }
+
+    const discNumber = track.volumeNumber ?? track.discNumber;
+    if (discNumber) {
+        tags['disk'] = {
+            current: discNumber,
+            total: 0,
+        };
+    }
+
+    if (track.bpm) {
+        tags['tmpo'] = Math.round(track.bpm);
     }
 
     const releaseDateStr =
@@ -936,7 +997,25 @@ function createMp4MetadataAtoms(track) {
         }
     }
 
-    return { tags };
+    if (track.replayGain) {
+        const { albumReplayGain, albumPeakAmplitude, trackReplayGain, trackPeakAmplitude } = track.replayGain;
+        let trackPeakAmplitudeString = String(trackPeakAmplitude);
+        let albumPeakAmplitudeString = String(albumPeakAmplitude);
+
+        if (trackPeakAmplitudeString.indexOf('.') === -1) {
+            trackPeakAmplitudeString += '.000000';
+        }
+        if (albumPeakAmplitudeString.indexOf('.') === -1) {
+            albumPeakAmplitudeString += '.000000';
+        }
+
+        if (trackPeakAmplitude) userTags.push(['com.apple.iTunes', 'replaygain_track_peak', trackPeakAmplitudeString]);
+        if (trackReplayGain) userTags.push(['com.apple.iTunes', 'replaygain_track_gain', `${trackReplayGain} dB`]);
+        if (albumPeakAmplitude) userTags.push(['com.apple.iTunes', 'replaygain_album_peak', albumPeakAmplitudeString]);
+        if (albumReplayGain) userTags.push(['com.apple.iTunes', 'replaygain_album_gain', `${albumReplayGain} dB`]);
+    }
+
+    return { tags, userTags };
 }
 
 function rebuildMp4WithMetadata(dataView, atoms, metadataAtoms) {
@@ -1049,17 +1128,26 @@ function rebuildMp4WithMetadata(dataView, atoms, metadataAtoms) {
 }
 
 function createMetadataBlock(metadataAtoms) {
-    const { tags, cover } = metadataAtoms;
+    const { tags, userTags, cover } = metadataAtoms;
 
     const ilstChildren = [];
 
     // Text tags
     for (const [key, value] of Object.entries(tags)) {
-        if (key === 'trkn') {
+        if (key === 'trkn' || key === 'disk') {
             ilstChildren.push(createIntAtom(key, value));
+        } else if (key === 'rtng') {
+            ilstChildren.push(createUintAtom(key, value, 1));
+        } else if (key === 'tmpo') {
+            ilstChildren.push(createUintAtom(key, value, 2));
         } else {
             ilstChildren.push(createStringAtom(key, value));
         }
+    }
+
+    // User tags
+    for (const [namespace, name, value] of userTags) {
+        ilstChildren.push(createUserAtom(namespace, name, value));
     }
 
     // Cover art
@@ -1158,17 +1246,18 @@ function createMetadataBlock(metadataAtoms) {
     return udta;
 }
 
-function createStringAtom(type, value) {
+function createStringAtom(type, value, truncateType = true) {
+    const typeLength = truncateType ? 4 : type.length;
     const textBytes = new TextEncoder().encode(value);
     const dataSize = 16 + textBytes.length; // 8 (data atom header) + 8 (flags/null) + text
-    const atomSize = 8 + dataSize;
+    const atomSize = 4 + typeLength + dataSize;
 
     const buf = new Uint8Array(atomSize);
     let offset = 0;
 
     // Wrapper atom (e.g., ©nam)
-    writeAtomHeader(buf, offset, atomSize, type);
-    offset += 8;
+    writeAtomHeader(buf, offset, atomSize, type, truncateType);
+    offset += 4 + typeLength;
 
     // Data atom
     writeAtomHeader(buf, offset, dataSize, 'data');
@@ -1189,8 +1278,122 @@ function createStringAtom(type, value) {
     return buf;
 }
 
+function createUserAtom(namespace, name, value) {
+    const encoder = new TextEncoder();
+    const dashBytes = encoder.encode('----'); // User-defined atom type
+    const namespaceBytes = encoder.encode(namespace);
+    const meanBytes = encoder.encode('mean'); // Standard 'mean' atom for namespace
+    const nameBytes = encoder.encode(name);
+    const valueBytes = encoder.encode('\x00\x00\x00\x01\x00\x00\x00\x00' + value);
+
+    /**
+     * Atom structure:
+     * [----] (atom header)
+     *   [mean] (namespace)
+     *   [name] (name)
+     *   [data] (value)
+     */
+    const atomSize = 8 + 12 + namespaceBytes.length + 12 + nameBytes.length + 8 + valueBytes.length;
+
+    const buf = new Uint8Array(atomSize);
+    let offset = 0;
+    writeAtomHeader(buf, offset, atomSize, '----');
+    offset += 8; // Skip header
+    writeAtomHeader(buf, offset, namespaceBytes.length + 12, 'mean');
+    offset += 12;
+    buf.set(namespaceBytes, offset);
+    offset += namespaceBytes.length;
+    writeAtomHeader(buf, offset, nameBytes.length + 12, 'name');
+    offset += 12;
+    buf.set(nameBytes, offset);
+    offset += nameBytes.length;
+    writeAtomHeader(buf, offset, valueBytes.length + 8, 'data');
+    offset += 8;
+    buf.set(valueBytes, offset);
+
+    return buf;
+}
+
+/**
+ * Converts a number or BigInt value to a big-endian byte array.
+ * @param {number|BigInt|null} value - The value to convert to bytes. If null, returns null.
+ * @param {number|null} [byteLength=null] - Optional fixed byte length. If provided, the result will be padded or truncated to this length. If not provided, returns the minimal byte representation.
+ * @returns {Uint8Array} A Uint8Array representing the value in big-endian format, or null if value is null.
+ * @throws {Error} If the value is a negative number.
+ * @example
+ * // Variable length (minimal bytes)
+ * toBigEndianBytes(256); // Uint8Array [ 1, 0 ]
+ * toBigEndianBytes(0); // Uint8Array [ 0 ]
+ *
+ * // Fixed length with padding
+ * toBigEndianBytes(1, 4); // Uint8Array [ 0, 0, 0, 1 ]
+ *
+ * // With BigInt
+ * toBigEndianBytes(0xDEADBEEFn, 4); // Uint8Array [ 222, 173, 190, 239 ]
+ */
+function toBigEndianBytes(value, byteLength = null) {
+    if (value == null) return new Uint8Array(0);
+
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error('Value must be a non-negative safe integer.');
+    }
+
+    // Fixed-length mode
+    if (byteLength != null) {
+        const bytes = new Uint8Array(byteLength);
+        for (let i = byteLength - 1; i >= 0; i--) {
+            bytes[i] = value & 0xff;
+            value = Math.floor(value / 256);
+        }
+        return bytes;
+    }
+
+    // Variable (minimal) mode
+    if (value === 0) return new Uint8Array([0]);
+
+    const result = [];
+    while (value > 0) {
+        result.push(value & 0xff);
+        value = Math.floor(value / 256);
+    }
+
+    result.reverse();
+
+    return new Uint8Array(result);
+}
+
+function createUintAtom(key, value, intByteLength = 1) {
+    const numberBytes = toBigEndianBytes(value, intByteLength);
+    const dataSize = 16 + intByteLength; // Atom header (8) + number bytes
+    const atomSize = 8 + dataSize;
+
+    const buf = new Uint8Array(atomSize);
+    let offset = 0;
+
+    // Wrapper atom (e.g., ©nam)
+    writeAtomHeader(buf, offset, atomSize, key);
+    offset += 8;
+
+    // Data atom
+    writeAtomHeader(buf, offset, dataSize, 'data');
+    offset += 8;
+
+    // Data Type ((Big Endian Unsigned Integer) + Locale (0))
+    buf[offset++] = 0;
+    buf[offset++] = 0;
+    buf[offset++] = 0;
+    buf[offset++] = 21; // Type 21
+    buf[offset++] = 0;
+    buf[offset++] = 0;
+    buf[offset++] = 0;
+    buf[offset++] = 0;
+    buf.set(numberBytes, offset++);
+
+    return buf;
+}
+
 function createIntAtom(type, value) {
-    // trkn is special: data is 8 bytes.
+    // trkn/disk are special: data is 8 bytes.
     // reserved(2) + track(2) + total(2) + reserved(2)
     const dataSize = 16 + 8;
     const atomSize = 8 + dataSize;
@@ -1214,16 +1417,18 @@ function createIntAtom(type, value) {
     buf[offset++] = 0;
     buf[offset++] = 0;
 
-    // Track data
+    const current = typeof value === 'object' ? value.current : value;
+    const total = typeof value === 'object' ? value.total : 0;
+
+    // Numbering payload (track/disc number + total)
     buf[offset++] = 0;
     buf[offset++] = 0;
-    // Track num
-    const trk = parseInt(value) || 0;
-    buf[offset++] = (trk >> 8) & 0xff;
-    buf[offset++] = trk & 0xff;
-    // Total (0 for now)
-    buf[offset++] = 0;
-    buf[offset++] = 0;
+    const numberValue = parseInt(current, 10) || 0;
+    buf[offset++] = (numberValue >> 8) & 0xff;
+    buf[offset++] = numberValue & 0xff;
+    const totalValue = parseInt(total, 10) || 0;
+    buf[offset++] = (totalValue >> 8) & 0xff;
+    buf[offset++] = totalValue & 0xff;
     buf[offset++] = 0;
     buf[offset++] = 0;
 
@@ -1265,15 +1470,38 @@ function createCoverAtom(imageBytes) {
     return buf;
 }
 
-function writeAtomHeader(buf, offset, size, type) {
-    buf[offset++] = (size >> 24) & 0xff;
-    buf[offset++] = (size >> 16) & 0xff;
-    buf[offset++] = (size >> 8) & 0xff;
-    buf[offset++] = size & 0xff;
+/**
+ * Creates an atom header for MP4 metadata.
+ * @param {number} size - The size of the atom in bytes.
+ * @param {string} type - The 4-character atom type identifier.
+ * @param {boolean} [truncate=false] - Whether to truncate the type to 4 characters or use full length.
+ * @returns {Uint8Array} A byte array containing the atom header with size and type information.
+ */
+function getAtomHeader(size, type, truncate = false) {
+    const buf = new Uint8Array(4 + (truncate ? 4 : type.length));
+    buf[0] = (size >> 24) & 0xff;
+    buf[1] = (size >> 16) & 0xff;
+    buf[2] = (size >> 8) & 0xff;
+    buf[3] = size & 0xff;
 
-    for (let i = 0; i < 4; i++) {
-        buf[offset++] = type.charCodeAt(i);
+    for (let i = 0; i < (truncate ? 4 : type.length); i++) {
+        buf[4 + i] = type.charCodeAt(i);
     }
+
+    return buf;
+}
+
+/**
+ * Writes an atom header to a buffer at the specified offset.
+ * @param {Uint8Array} buf - The buffer to write the atom header to.
+ * @param {number} offset - The offset in the buffer where the atom header should be written.
+ * @param {number} size - The size of the atom.
+ * @param {string} type - The type of the atom (typically a 4-character code).
+ * @param {boolean} [truncate=true] - Whether to truncate the atom header. Defaults to true.
+ * @returns {void}
+ */
+function writeAtomHeader(buf, offset, size, type, truncate = true) {
+    buf.set(getAtomHeader(size, type, truncate), offset);
 }
 
 function updateChunkOffsets(buffer, moovOffset, moovSize, shift) {

@@ -88,6 +88,10 @@ export class MusicAPI {
         return null;
     }
 
+    async getArtistSocials(artistName) {
+        return this.tidalAPI.getArtistSocials(artistName);
+    }
+
     async getPlaylist(id, _provider = null) {
         // Playlists are always Tidal for now
         return this.tidalAPI.getPlaylist(id);
@@ -125,6 +129,14 @@ export class MusicAPI {
             return this.qobuzAPI.getCoverUrl(id.slice(2), size);
         }
         return this.tidalAPI.getCoverUrl(id, size);
+    }
+
+    getVideoCoverUrl(videoCoverId, fallbackCoverId, size = '1280') {
+        if (videoCoverId) {
+            const videoUrl = this.tidalAPI.getVideoCoverUrl(videoCoverId, size);
+            if (videoUrl) return videoUrl;
+        }
+        return this.getCoverUrl(fallbackCoverId, size);
     }
 
     getArtistPictureUrl(id, size = '320') {
