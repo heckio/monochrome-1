@@ -17,7 +17,7 @@ ENV PATH="/root/.bun/bin:${PATH}"
 COPY package.json package-lock.json ./
 
 # Install dependencies (Node)
-RUN npm ci --ignore-scripts && node node_modules/esbuild/install.js
+RUN npm ci
 
 # Copy the rest of the project
 COPY . .
